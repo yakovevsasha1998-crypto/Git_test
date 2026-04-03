@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     password:SecretStr
     bio:str|None = None
 
+
 #вход в аккаунт  
 class UserLogin(BaseModel):
     username:str = Field(min_length=2,max_length=100)
