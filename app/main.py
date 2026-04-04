@@ -108,3 +108,61 @@ def create_task(
     db.commit()
     return 'все четко задача добавлена'
 
+@app.put('/put_task/{task_id}', tags=['Обновить задачу'])
+def put_task(
+    task_id: int,
+    task_update: CreateTask,
+    user_id: int = Depends(validen_token),
+    db: Session = Depends(get_db)
+):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    
+    if not task:
+        raise HTTPException(404, 'Задача не найдена')
+    
+    if task.user_id != user_id:
+        raise HTTPException(403, 'Это не твоя задача')
+    
+    # Обновляем и название, и описание
+    task.name_task = task_update.name_task  
+    task.description = task_update.description  
+    task.is_completed = task_update.is_completed
+    
+    db.commit()
+    db.refresh(task)
+    
+    return {
+        "message": "Задача обновлена",
+        "task": task
+    }
+    
+@app.delete('/delete_task/{task_id}')
+def delete_task(task_id:int,user_id:int = Depends(validen_token),db:Session = Depends(get_db)):
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=403,detail='Задача не найдена')
+    
+    db.delete(task)
+    db.commit()
+    db.refresh(task)
+    
+    return {
+        'name':task.name_task,
+        'description':task.description,
+        'status':'успешно удалена'
+    }
+    
+@app.get('/my_progile',tags=['мой профиль'])
+def get_my_profil(user_id:int = Depends(validen_token),db:Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404,detail='Пользователь не найден')
+    task = db.query(Task).filter(Task.id == user_id).all()
+    return {
+        'username':user.username,
+        'age':user.age,
+        'bio':user.bio,
+        'tasks': task,
+        'tasks_count': len(task)
+    }
+
