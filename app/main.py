@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends,Header
 from sqlalchemy.orm import Session
 from datetime import datetime,timedelta
 import bcrypt
@@ -6,6 +6,12 @@ import jwt
 from database import get_db, Base, engine
 from schemas import UserCreate, UserLogin, CreateTask
 from models import User, Task
+import dotenv
+import uvicorn
+
+from config import DB, ALGORITHM, TOKEN_TIME, SECRET_KEY
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
@@ -22,7 +28,7 @@ def register_users(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail='Вам должно быть больше 18')
     
     hashed_password = bcrypt.hashpw(
-        user.password.get_secret_value().encode('utf-8'),
+        user.password.encode('utf-8'),
         bcrypt.gensalt()
     )
     
@@ -45,7 +51,8 @@ def register_users(user: UserCreate, db: Session = Depends(get_db)):
 @app.post('/Авторизация', tags=['Авторизация пользователя'])
 def login_user(login: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(
-        (User.username == login.login)).first()
+        User.username == login.username
+    ).first()
     
     if not user:
         raise HTTPException(status_code=401, detail='Пользователь не найден')
@@ -53,13 +60,16 @@ def login_user(login: UserLogin, db: Session = Depends(get_db)):
     if not bcrypt.checkpw(login.password.encode('utf-8'), user.password.encode('utf-8')):
         raise HTTPException(status_code=401, detail='Неверный пароль')
     
-    create_token = jwt.encode(
-    {"sub": user.id, "exp": datetime.utcnow() + timedelta(minutes=30)},
-    "your_secret_key", 
-    algorithm="HS256"
-)
+    token = jwt.encode(
+        {"sub": user.id, "exp": datetime.utcnow() + timedelta(minutes=30)},
+        SECRET_KEY,
+        algorithm="HS256"
+    )
     return {
-    "access_token": create_token,
-    "token_type": "bearer",
-    "user_id": user.id
+        "access_token": token,
+        "token_type": "bearer",
+        "user_id": user.id,
+        "status":'200 - все четко ты зашел!'
     }
+
+def validen_token()
