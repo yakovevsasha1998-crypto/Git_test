@@ -10,7 +10,7 @@ import dotenv
 import uvicorn
 
 from config import DB, ALGORITHM, TOKEN_TIME, SECRET_KEY
-Base.metadata.drop_all(bind=engine)  # удалит все таблицы
+
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -126,7 +126,7 @@ def put_task(
     # Обновляем и название, и описание
     task.name_task = task_update.name_task  
     task.description = task_update.description  
-    task.is_completed = task_update.is_completed
+    # task.is_completed = task_update.is_completed
     
     db.commit()
     db.refresh(task)
@@ -136,7 +136,7 @@ def put_task(
         "task": task
     }
     
-@app.delete('/delete_task/{task_id}')
+@app.delete('/delete_task/{task_id}',tags=['Удалить задачу'])
 def delete_task(task_id:int,user_id:int = Depends(validen_token),db:Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id).first()
     if not task:
@@ -144,7 +144,6 @@ def delete_task(task_id:int,user_id:int = Depends(validen_token),db:Session = De
     
     db.delete(task)
     db.commit()
-    db.refresh(task)
     
     return {
         'name':task.name_task,
@@ -152,12 +151,12 @@ def delete_task(task_id:int,user_id:int = Depends(validen_token),db:Session = De
         'status':'успешно удалена'
     }
     
-@app.get('/my_progile',tags=['мой профиль'])
+@app.get('/my_progile',tags=['Мой профиль'])
 def get_my_profil(user_id:int = Depends(validen_token),db:Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404,detail='Пользователь не найден')
-    task = db.query(Task).filter(Task.id == user_id).all()
+    task = db.query(Task).filter(Task.user_id == user_id).all()
     return {
         'username':user.username,
         'age':user.age,
