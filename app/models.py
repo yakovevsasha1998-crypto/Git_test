@@ -1,4 +1,4 @@
-from sqlalchemy import Column,Integer,String,DateTime
+from sqlalchemy import Column,Integer,String,DateTime,Boolean
 from database import Base
 from datetime import datetime
 
@@ -15,6 +15,9 @@ class Task(Base):
     id = Column(Integer,primary_key=True)
     name_task = Column(String(50),index=True)
     description = Column(String)
+    user_id = Column(Integer,nullable=False)
+    is_completed = Column(Boolean,default=False)
+    
     
     
 

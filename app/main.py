@@ -10,7 +10,7 @@ import dotenv
 import uvicorn
 
 from config import DB, ALGORITHM, TOKEN_TIME, SECRET_KEY
-
+Base.metadata.drop_all(bind=engine)  # удалит все таблицы
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
@@ -61,15 +61,50 @@ def login_user(login: UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail='Неверный пароль')
     
     token = jwt.encode(
-        {"sub": user.id, "exp": datetime.utcnow() + timedelta(minutes=30)},
+        {"user_id": user.id, "exp": datetime.utcnow() + timedelta(minutes=30)},
         SECRET_KEY,
         algorithm="HS256"
     )
     return {
-        "access_token": token,
+        "access_token": f'bearer {token}',
         "token_type": "bearer",
         "user_id": user.id,
         "status":'200 - все четко ты зашел!'
     }
 
-def validen_token()
+def validen_token(valid_token:str = Header(...)):
+    try:
+        token = valid_token.replace('bearer ','')
+        
+        validation = jwt.decode(token,SECRET_KEY,algorithms=[ALGORITHM])
+        return validation.get('user_id')
+    except:
+        raise HTTPException(status_code=401,detail='Токен не валиден!')
+   
+@app.get('/get_all_user_task',tags=['Посмотреть список задач'])
+def get_user_task(user_id:int = Depends(validen_token),db:Session = Depends(get_db)):
+    
+    tasks = db.query(Task).filter(Task.user_id == user_id).all()
+    
+    if not tasks:
+        raise HTTPException(status_code=404,detail= 'нет задач у данного пользователя')
+    return {
+        'Всего задач':len(tasks),
+        'tasks':tasks
+    }
+    
+@app.post('/create_task',tags=['Добавить задачу'])
+def create_task(
+    task:CreateTask,db:Session = Depends(get_db),
+    user_id:int = Depends(validen_token)
+):
+    new_task = Task(
+        name_task = task.name_task,
+        description = task.description,
+        user_id = user_id
+    )
+    
+    db.add(new_task)
+    db.commit()
+    return 'все четко задача добавлена'
+
