@@ -14,7 +14,7 @@ from config import DB, ALGORITHM, TOKEN_TIME, SECRET_KEY
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
-
+# ======== Регистрируем пользователя ================================
 @app.post('/Зарегистрироваться', tags=['Регистрация пользователя'])
 def register_users(user: UserCreate, db: Session = Depends(get_db)):
     
@@ -26,19 +26,19 @@ def register_users(user: UserCreate, db: Session = Depends(get_db)):
     # Проверка возраста
     if user.age < 18:
         raise HTTPException(status_code=422, detail='Вам должно быть больше 18')
-    
+    # хешируем пароль
     hashed_password = bcrypt.hashpw(
         user.password.encode('utf-8'),
         bcrypt.gensalt()
     )
-    
+    # добро пожаловать новый пользователь
     new_user = User(
         username=user.username,
         password=hashed_password.decode('utf-8'),
         age=user.age,
         bio=user.bio
     )
-    
+    # запоминаем его
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
@@ -47,31 +47,32 @@ def register_users(user: UserCreate, db: Session = Depends(get_db)):
         "message": "Пользователь зарегистрирован",
         "user_id": new_user.id
     }
-    
+# ================ Авторизация ===============================
 @app.post('/Авторизация', tags=['Авторизация пользователя'])
 def login_user(login: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(
         User.username == login.username
     ).first()
-    
+    # если его нет вежлево об этом говорим
     if not user:
         raise HTTPException(status_code=401, detail='Пользователь не найден')
-    
+    # если он ввел неверный пароль вежлево об этом сообщаем
     if not bcrypt.checkpw(login.password.encode('utf-8'), user.password.encode('utf-8')):
         raise HTTPException(status_code=401, detail='Неверный пароль')
-    
+    # создаем токен чтобы мы запомнили его,не будем его мучить
     token = jwt.encode(
-        {"user_id": user.id, "exp": datetime.utcnow() + timedelta(minutes=30)},
+        {"user_id": user.id, "token_time": datetime.utcnow() + timedelta(minutes=30)},
         SECRET_KEY,
         algorithm="HS256"
     )
+    
     return {
         "access_token": f'bearer {token}',
         "token_type": "bearer",
         "user_id": user.id,
         "status":'200 - все четко ты зашел!'
     }
-
+# =============== пропуск для пользователя ==================
 def validen_token(valid_token:str = Header(...)):
     try:
         token = valid_token.replace('bearer ','')
@@ -80,7 +81,7 @@ def validen_token(valid_token:str = Header(...)):
         return validation.get('user_id')
     except:
         raise HTTPException(status_code=401,detail='Токен не валиден!')
-   
+# ================== просматриваем его задачки ================================  
 @app.get('/get_all_user_task',tags=['Посмотреть список задач'])
 def get_user_task(user_id:int = Depends(validen_token),db:Session = Depends(get_db)):
     
@@ -92,7 +93,7 @@ def get_user_task(user_id:int = Depends(validen_token),db:Session = Depends(get_
         'Всего задач':len(tasks),
         'tasks':tasks
     }
-    
+#================== здаем задачу =====================    
 @app.post('/create_task',tags=['Добавить задачу'])
 def create_task(
     task:CreateTask,db:Session = Depends(get_db),
@@ -107,7 +108,7 @@ def create_task(
     db.add(new_task)
     db.commit()
     return 'все четко задача добавлена'
-
+# ==================== обновляем задачу ==================
 @app.put('/put_task/{task_id}', tags=['Обновить задачу'])
 def put_task(
     task_id: int,
@@ -135,7 +136,7 @@ def put_task(
         "message": "Задача обновлена",
         "task": task
     }
-    
+# ================== Удаляем задачку =================================
 @app.delete('/delete_task/{task_id}',tags=['Удалить задачу'])
 def delete_task(task_id:int,user_id:int = Depends(validen_token),db:Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id).first()
@@ -150,7 +151,7 @@ def delete_task(task_id:int,user_id:int = Depends(validen_token),db:Session = De
         'description':task.description,
         'status':'успешно удалена'
     }
-    
+# =========================Смотрим его профиль =================================   
 @app.get('/my_progile',tags=['Мой профиль'])
 def get_my_profil(user_id:int = Depends(validen_token),db:Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
